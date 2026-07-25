@@ -17,17 +17,26 @@ import timber.log.Timber
 import java.io.File
 
 internal class SentReceiver : BroadcastReceiver() {
+    companion object {
+        internal fun terminalFailureReason(resultCode: Int): String? = when (resultCode) {
+            SmsManager.RESULT_RIL_SMS_SEND_FAIL_RETRY -> null
+            SmsManager.RESULT_ERROR_GENERIC_FAILURE -> "GENERIC_FAILURE"
+            SmsManager.RESULT_ERROR_NO_SERVICE -> "NO_SERVICE"
+            SmsManager.RESULT_ERROR_NULL_PDU -> "NULL_PDU"
+            SmsManager.RESULT_ERROR_RADIO_OFF -> "RADIO_OFF"
+            SmsManager.RESULT_ERROR_LIMIT_EXCEEDED -> "LIMIT_EXCEEDED"
+            else -> "UNKNOWN:$resultCode"
+        }
+    }
+
     override fun onReceive(context: Context, intent: Intent) {
         val messageId = intent.getStringExtra(Constants.KEY_MESSAGE_ID)
         cleanupPduFile(context, messageId)
         when (resultCode) {
             Activity.RESULT_OK -> handleMessageSent(context, intent.getStringExtra(Constants.KEY_MESSAGE_ID))
-            SmsManager.RESULT_ERROR_GENERIC_FAILURE -> handleMessageFailed(context, intent.getStringExtra(Constants.KEY_MESSAGE_ID), "GENERIC_FAILURE")
-            SmsManager.RESULT_ERROR_NO_SERVICE -> handleMessageFailed(context, intent.getStringExtra(Constants.KEY_MESSAGE_ID), "NO_SERVICE")
-            SmsManager.RESULT_ERROR_NULL_PDU -> handleMessageFailed(context, intent.getStringExtra(Constants.KEY_MESSAGE_ID), "NULL_PDU")
-            SmsManager.RESULT_ERROR_RADIO_OFF -> handleMessageFailed(context, intent.getStringExtra(Constants.KEY_MESSAGE_ID), "RADIO_OFF")
-            SmsManager.RESULT_ERROR_LIMIT_EXCEEDED -> handleMessageFailed(context, intent.getStringExtra(Constants.KEY_MESSAGE_ID), "LIMIT_EXCEEDED")
-            else -> handleMessageFailed(context, intent.getStringExtra(Constants.KEY_MESSAGE_ID), "UNKNOWN:${resultCode}")
+            else -> terminalFailureReason(resultCode)?.let {
+                handleMessageFailed(context, messageId, it)
+            } ?: Timber.w("radio requested retry for message with ID [$messageId]; waiting for the scheduled server retry")
         }
     }
 
