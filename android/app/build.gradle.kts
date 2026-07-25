@@ -16,7 +16,7 @@ android {
         applicationId = "com.httpsms"
         minSdk = 28
         targetSdk = 37
-        versionCode = 2
+        versionCode = 3
         versionName = gitHash.getOrElse("unknown")
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
