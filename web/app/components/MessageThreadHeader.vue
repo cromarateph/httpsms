@@ -42,7 +42,7 @@ interface SelectItem {
 
 const owners = computed<SelectItem[]>(() => {
   return phonesStore.phones.map((phone: EntitiesPhone) => ({
-    title: formatPhoneNumber(phone.phone_number),
+    title: `${formatPhoneNumber(phone.phone_number)}${phone.online ? '' : ' (offline)'}`,
     value: phone.phone_number,
   }))
 })
@@ -118,7 +118,7 @@ async function logout() {
         <p class="text-medium-emphasis mb-n1 mt-0">
           {{ phoneCountry(phonesStore.owner) }}
         </p>
-        <v-tooltip v-if="phonesStore.heartbeat" location="end">
+        <v-tooltip v-if="phonesStore.activePhone" location="end">
           <template #activator="{ props: tooltipProps }">
             <v-btn
               v-bind="tooltipProps"
@@ -128,22 +128,36 @@ async function logout() {
                 name: 'heartbeats-id',
                 params: { id: phonesStore.owner },
               }"
-              color="success"
+              :color="phonesStore.activePhone.online ? 'success' : 'error'"
               class="ml-2 mb-0 mt-1"
               icon
               variant="text"
             >
               <v-icon
-                v-if="phonesStore.heartbeat.charging"
+                v-if="
+                  phonesStore.activePhone.online &&
+                  phonesStore.heartbeat?.charging
+                "
                 size="small"
                 class="mt-n1"
                 :icon="mdiBatteryChargingHigh"
               />
-              <v-icon v-else size="x-small" color="success" :icon="mdiCircle" />
+              <v-icon
+                v-else
+                size="x-small"
+                :color="phonesStore.activePhone.online ? 'success' : 'error'"
+                :icon="mdiCircle"
+              />
             </v-btn>
           </template>
-          <h4 class="font-weight-bold mt-0 mb-0">Last Heartbeat</h4>
-          {{ humanizeTime(phonesStore.heartbeat.timestamp) }} ago
+          <h4 class="font-weight-bold mt-0 mb-0">
+            {{ phonesStore.activePhone.online ? 'Online' : 'Offline' }}
+          </h4>
+          <template v-if="phonesStore.heartbeat">
+            Last heartbeat {{ humanizeTime(phonesStore.heartbeat.timestamp) }}
+            ago
+          </template>
+          <template v-else>No heartbeat received</template>
         </v-tooltip>
       </div>
     </div>

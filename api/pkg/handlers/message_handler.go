@@ -1,7 +1,9 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
+	"net/url"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -103,6 +105,11 @@ func (h *MessageHandler) PostSend(c fiber.Ctx) error {
 	}
 
 	message, err := h.service.SendMessage(ctx, request.ToMessageSendParams(h.userIDFomContext(c), c.OriginalURL()))
+	if errors.Is(err, services.ErrPhoneOffline) {
+		return h.responseUnprocessableEntity(c, url.Values{
+			"from": {"the selected phone is offline. open the Android app and wait for a fresh heartbeat before sending messages"},
+		}, "cannot send message while the selected phone is offline")
+	}
 	if err != nil {
 		ctxLogger.Error(stacktrace.Propagatef(err, "cannot send message with paylod [%s]", c.Body()))
 		return h.responseInternalServerError(c)

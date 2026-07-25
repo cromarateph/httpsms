@@ -243,6 +243,8 @@ export interface EntitiesPhone {
   messages_per_minute: number;
   /** @example "This phone cannot receive calls. Please send an SMS instead." */
   missed_call_auto_reply?: string;
+  /** @example true */
+  online: boolean;
   /** @example "+18005550199" */
   phone_number: string;
   sim: EntitiesSIM;

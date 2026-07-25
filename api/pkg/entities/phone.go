@@ -27,6 +27,8 @@ type Phone struct {
 	// UnarchiveThread moves an archived message thread back to the inbox when a new message is received on this phone.
 	UnarchiveThread bool `json:"unarchive_thread" gorm:"default:false" example:"false"`
 
+	Online bool `json:"online" gorm:"-" bson:"-" example:"true"`
+
 	CreatedAt time.Time `json:"created_at" example:"2022-06-05T14:26:02.302718+03:00"`
 	UpdatedAt time.Time `json:"updated_at" example:"2022-06-05T14:26:10.303278+03:00"`
 }

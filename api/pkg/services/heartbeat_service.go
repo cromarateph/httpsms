@@ -19,7 +19,8 @@ import (
 
 const (
 	// select id, a.timestamp, a.owner,  a.timestamp - (SELECT timestamp from heartbeats b where  b.timestamp < a.timestamp and a.owner = b.owner and a.user_id = b.user_id order by b.timestamp desc  limit 1) as diff  from heartbeats a;
-	heartbeatCheckInterval = 16 * time.Minute
+	heartbeatCheckInterval   = 16 * time.Minute
+	phoneHeartbeatStaleAfter = heartbeatCheckInterval * 2
 )
 
 // HeartbeatService is handles heartbeat requests
@@ -80,6 +81,20 @@ func (service *HeartbeatService) Index(ctx context.Context, userID entities.User
 
 	ctxLogger.Info(fmt.Sprintf("fetched [%d] messages with prams [%+#v]", len(*heartbeats), params))
 	return heartbeats, nil
+}
+
+// PhoneIsOnline returns whether a phone has a recent heartbeat.
+func (service *HeartbeatService) PhoneIsOnline(ctx context.Context, userID entities.UserID, owner string) bool {
+	ctx, span, ctxLogger := service.tracer.StartWithLogger(ctx, service.logger)
+	defer span.End()
+
+	heartbeat, err := service.repository.Last(ctx, userID, owner)
+	if err != nil {
+		ctxLogger.Warn(stacktrace.Propagatef(err, "cannot load last heartbeat for userID [%s] and owner [%s]; treating phone as offline", userID, owner))
+		return false
+	}
+
+	return time.Since(heartbeat.Timestamp) <= phoneHeartbeatStaleAfter
 }
 
 // HeartbeatStoreParams are parameters for creating a new entities.Heartbeat

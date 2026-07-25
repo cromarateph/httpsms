@@ -160,7 +160,7 @@ onMounted(async () => {
                 label="Content"
               />
               <loading-button
-                :disabled="sending"
+                :disabled="sending || !phonesStore.activePhone?.online"
                 :block="mdAndDown"
                 :loading="sending"
                 :icon="mdiSend"

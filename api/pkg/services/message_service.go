@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -20,6 +21,8 @@ import (
 	"github.com/NdoleStudio/httpsms/pkg/entities"
 	"github.com/NdoleStudio/httpsms/pkg/telemetry"
 )
+
+var ErrPhoneOffline = errors.New("phone is offline")
 
 // ServiceAttachment represents attachment data passed to the service layer
 type ServiceAttachment struct {
@@ -465,7 +468,10 @@ func (service *MessageService) SendMessage(ctx context.Context, params MessageSe
 
 	ctxLogger := service.tracer.CtxLogger(service.logger, span)
 
-	sendAttempts, sim, messagesPerMinute := service.phoneSettings(ctx, params.UserID, phonenumbers.Format(params.Owner, phonenumbers.E164))
+	sendAttempts, sim, messagesPerMinute, err := service.phoneSettings(ctx, params.UserID, phonenumbers.Format(params.Owner, phonenumbers.E164))
+	if err != nil {
+		return nil, service.tracer.WrapErrorSpan(span, err)
+	}
 
 	eventPayload := events.MessageAPISentPayload{
 		MessageID:         uuid.New(),
@@ -979,19 +985,19 @@ func (service *MessageService) SearchMessages(ctx context.Context, params *Messa
 	return messages, nil
 }
 
-func (service *MessageService) phoneSettings(ctx context.Context, userID entities.UserID, owner string) (uint, entities.SIM, uint) {
+func (service *MessageService) phoneSettings(ctx context.Context, userID entities.UserID, owner string) (uint, entities.SIM, uint, error) {
 	ctx, span := service.tracer.Start(ctx)
 	defer span.End()
 
-	ctxLogger := service.tracer.CtxLogger(service.logger, span)
-
 	phone, err := service.phoneService.Load(ctx, userID, owner)
 	if err != nil {
-		ctxLogger.Error(stacktrace.Propagatef(err, "cannot load phone for userID [%s] and owner [%s]. using default max send attempt of 2", userID, owner))
-		return 2, entities.SIM1, 0
+		return 0, entities.SIM1, 0, stacktrace.Propagatef(err, "cannot load phone for userID [%s] and owner [%s]", userID, owner)
+	}
+	if !phone.Online {
+		return 0, phone.SIM, phone.MessagesPerMinute, fmt.Errorf("%w: %s", ErrPhoneOffline, owner)
 	}
 
-	return phone.MaxSendAttemptsSanitized(), phone.SIM, phone.MessagesPerMinute
+	return phone.MaxSendAttemptsSanitized(), phone.SIM, phone.MessagesPerMinute, nil
 }
 
 // storeSentMessage a new message

@@ -21,10 +21,11 @@ import (
 // PhoneService is handles phone requests
 type PhoneService struct {
 	service
-	logger     telemetry.Logger
-	tracer     telemetry.Tracer
-	repository repositories.PhoneRepository
-	dispatcher *EventDispatcher
+	logger           telemetry.Logger
+	tracer           telemetry.Tracer
+	repository       repositories.PhoneRepository
+	heartbeatService *HeartbeatService
+	dispatcher       *EventDispatcher
 }
 
 // NewPhoneService creates a new PhoneService
@@ -32,13 +33,15 @@ func NewPhoneService(
 	logger telemetry.Logger,
 	tracer telemetry.Tracer,
 	repository repositories.PhoneRepository,
+	heartbeatService *HeartbeatService,
 	dispatcher *EventDispatcher,
 ) (s *PhoneService) {
 	return &PhoneService{
-		logger:     logger.WithService(fmt.Sprintf("%T", s)),
-		tracer:     tracer,
-		dispatcher: dispatcher,
-		repository: repository,
+		logger:           logger.WithService(fmt.Sprintf("%T", s)),
+		tracer:           tracer,
+		dispatcher:       dispatcher,
+		repository:       repository,
+		heartbeatService: heartbeatService,
 	}
 }
 
@@ -80,6 +83,10 @@ func (service *PhoneService) Index(ctx context.Context, authUser entities.AuthCo
 		return nil, service.tracer.WrapErrorSpan(span, stacktrace.Propagatef(err, "could not fetch phones with parms [%+#v]", params))
 	}
 
+	for index := range *phones {
+		service.setOnline(ctx, &(*phones)[index])
+	}
+
 	ctxLogger.Info(fmt.Sprintf("fetched [%d] phones with prams [%+#v]", len(*phones), params))
 	return phones, nil
 }
@@ -89,7 +96,17 @@ func (service *PhoneService) Load(ctx context.Context, userID entities.UserID, o
 	ctx, span := service.tracer.Start(ctx)
 	defer span.End()
 
-	return service.repository.Load(ctx, userID, owner)
+	phone, err := service.repository.Load(ctx, userID, owner)
+	if err != nil {
+		return nil, err
+	}
+
+	service.setOnline(ctx, phone)
+	return phone, nil
+}
+
+func (service *PhoneService) setOnline(ctx context.Context, phone *entities.Phone) {
+	phone.Online = service.heartbeatService.PhoneIsOnline(ctx, phone.UserID, phone.PhoneNumber)
 }
 
 // PhoneUpsertParams are parameters for creating a new entities.Phone

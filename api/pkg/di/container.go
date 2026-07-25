@@ -1046,6 +1046,7 @@ func (container *Container) PhoneService() (service *services.PhoneService) {
 		container.Logger(),
 		container.Tracer(),
 		container.PhoneRepository(),
+		container.HeartbeatService(),
 		container.EventDispatcher(),
 	)
 }

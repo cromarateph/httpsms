@@ -537,19 +537,29 @@ onBeforeUnmount(() => {
             <VForm ref="form" class="d-flex">
               <VTextField
                 v-model="formMessage"
-                :disabled="submitting || !contactIsPhoneNumber"
+                :disabled="
+                  submitting ||
+                  !contactIsPhoneNumber ||
+                  !phonesStore.activePhone?.online
+                "
                 variant="solo"
                 :rules="formMessageRules"
                 :placeholder="
-                  contactIsPhoneNumber
-                    ? 'Type your message here'
-                    : 'You cannot send messages to ' + contact
+                  !phonesStore.activePhone?.online
+                    ? 'Phone is offline'
+                    : contactIsPhoneNumber
+                      ? 'Type your message here'
+                      : 'You cannot send messages to ' + contact
                 "
                 rounded
                 @keydown.enter="sendMessage"
               />
               <VBtn
-                :disabled="submitting || !contactIsPhoneNumber"
+                :disabled="
+                  submitting ||
+                  !contactIsPhoneNumber ||
+                  !phonesStore.activePhone?.online
+                "
                 type="submit"
                 color="primary"
                 class="ml-2"

@@ -173,7 +173,7 @@ func (validator MessageHandlerValidator) ValidateMessageSend(ctx context.Context
 		result.Add("send_at", "the scheduled time cannot be more than 20 days (480 hours) in the future")
 	}
 
-	_, err := validator.phoneService.Load(ctx, userID, request.From)
+	phone, err := validator.phoneService.Load(ctx, userID, request.From)
 	if stacktrace.GetCode(err) == repositories.ErrCodeNotFound {
 		result.Add("from", fmt.Sprintf("no phone found with with 'from' number [%s]. install the android app on your phone to start sending messages", request.From))
 	}
@@ -181,6 +181,8 @@ func (validator MessageHandlerValidator) ValidateMessageSend(ctx context.Context
 	if err != nil {
 		ctxLogger.Error(validator.tracer.WrapErrorSpan(span, stacktrace.Propagatef(err, "could not load phone for user [%s] and phone [%s]", userID, request.From)))
 		result.Add("from", fmt.Sprintf("could not validate 'from' number [%s], please try again later", request.From))
+	} else if !phone.Online {
+		result.Add("from", fmt.Sprintf("phone [%s] is offline. open the Android app and wait for a fresh heartbeat before sending messages", request.From))
 	}
 
 	return result
@@ -223,7 +225,7 @@ func (validator MessageHandlerValidator) ValidateMessageBulkSend(ctx context.Con
 		return result
 	}
 
-	_, err := validator.phoneService.Load(ctx, userID, request.From)
+	phone, err := validator.phoneService.Load(ctx, userID, request.From)
 	if stacktrace.GetCode(err) == repositories.ErrCodeNotFound {
 		result.Add("from", fmt.Sprintf("no phone found with with 'from' number [%s]. Install the android app on your phone to start sending messages", request.From))
 	}
@@ -231,6 +233,8 @@ func (validator MessageHandlerValidator) ValidateMessageBulkSend(ctx context.Con
 	if err != nil {
 		ctxLogger.Error(validator.tracer.WrapErrorSpan(span, stacktrace.Propagatef(err, "could not load phone for user [%s] and phone [%s]", userID, request.From)))
 		result.Add("from", fmt.Sprintf("could not validate 'from' number [%s], please try again later", request.From))
+	} else if !phone.Online {
+		result.Add("from", fmt.Sprintf("phone [%s] is offline. open the Android app and wait for a fresh heartbeat before sending messages", request.From))
 	}
 
 	return result
