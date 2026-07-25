@@ -115,14 +115,23 @@ func setupPhone(ctx context.Context, t *testing.T, messagesPerMinute uint) testP
 		"charging":      true,
 	})
 	require.NoError(t, err)
-	heartbeatRequest, err := http.NewRequestWithContext(ctx, http.MethodPost, apiBaseURL+"/v1/heartbeats", bytes.NewReader(heartbeatBody))
-	require.NoError(t, err)
-	heartbeatRequest.Header.Set("Content-Type", "application/json")
-	heartbeatRequest.Header.Set("x-api-key", phoneAPIKeyValue)
-	heartbeatResponse, err := http.DefaultClient.Do(heartbeatRequest)
-	require.NoError(t, err)
-	defer heartbeatResponse.Body.Close()
-	require.Equal(t, http.StatusCreated, heartbeatResponse.StatusCode, "heartbeat store failed")
+	heartbeatStatus := 0
+	heartbeatDeadline := time.Now().Add(15 * time.Second)
+	for time.Now().Before(heartbeatDeadline) {
+		heartbeatRequest, requestErr := http.NewRequestWithContext(ctx, http.MethodPost, apiBaseURL+"/v1/heartbeats", bytes.NewReader(heartbeatBody))
+		require.NoError(t, requestErr)
+		heartbeatRequest.Header.Set("Content-Type", "application/json")
+		heartbeatRequest.Header.Set("x-api-key", phoneAPIKeyValue)
+		heartbeatResponse, requestErr := http.DefaultClient.Do(heartbeatRequest)
+		require.NoError(t, requestErr)
+		heartbeatStatus = heartbeatResponse.StatusCode
+		heartbeatResponse.Body.Close()
+		if heartbeatStatus == http.StatusCreated {
+			break
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	require.Equal(t, http.StatusCreated, heartbeatStatus, "heartbeat store failed")
 
 	return testPhone{
 		PhoneNumber: phoneNumber,
