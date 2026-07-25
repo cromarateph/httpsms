@@ -290,10 +290,12 @@ func outstandingMessageClaimQuery(tx *gorm.DB, message *entities.Message, userID
 		entities.MessageStatusScheduled,
 		entities.MessageStatusExpired,
 	}
+	const fallbackAttemptIsAvailable = "status <> ? OR send_attempt_count < max_send_attempts"
 	candidate := tx.Model(&entities.Message{}).
 		Select("id").
 		Where("user_id = ?", userID).
 		Where("status IN ?", statuses).
+		Where(fallbackAttemptIsAvailable, entities.MessageStatusExpired).
 		Where("notification_scheduled_at <= CURRENT_TIMESTAMP").
 		Order("notification_scheduled_at ASC, created_at ASC").
 		Limit(1)
@@ -303,7 +305,8 @@ func outstandingMessageClaimQuery(tx *gorm.DB, message *entities.Message, userID
 
 	return query.
 		Where("id = (?)", candidate).
-		Where("status IN ?", statuses)
+		Where("status IN ?", statuses).
+		Where(fallbackAttemptIsAvailable, entities.MessageStatusExpired)
 }
 
 func (repository *gormMessageRepository) order(params IndexParams, defaultSortBy string) string {

@@ -57,6 +57,7 @@ const formMessageRules = [
 ]
 
 let webhookChannel: Channel | null = null
+let messagePoller: ReturnType<typeof setInterval> | null = null
 
 const contactIsPhoneNumber = computed(() => {
   const thread = threadsStore.currentThread
@@ -231,7 +232,15 @@ onMounted(async () => {
   await loadData()
 
   const pusherKey = config.public.pusherKey as string
-  if (!pusherKey || !authStore.user) return
+  if (!pusherKey || !authStore.user) {
+    messagePoller = setInterval(() => {
+      if (!document.hidden && !loadingMessages.value) {
+        loadMessages(false, false)
+        void threadsStore.loadThreads()
+      }
+    }, 5000)
+    return
+  }
 
   const pusher = new Pusher(pusherKey, {
     cluster: config.public.pusherCluster as string,
@@ -260,6 +269,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   if (webhookChannel) webhookChannel.unsubscribe()
+  if (messagePoller) clearInterval(messagePoller)
 })
 </script>
 

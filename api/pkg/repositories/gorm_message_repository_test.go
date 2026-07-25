@@ -33,6 +33,7 @@ func TestOutstandingMessageClaimQuery(t *testing.T) {
 		assert.Contains(t, query, "notification_scheduled_at <= CURRENT_TIMESTAMP")
 		assert.Contains(t, query, "ORDER BY notification_scheduled_at ASC, created_at ASC")
 		assert.GreaterOrEqual(t, strings.Count(query, "status IN"), 2)
+		assert.Equal(t, 2, strings.Count(query, "send_attempt_count < max_send_attempts"))
 		assert.NotContains(t, fmt.Sprint(result.Statement.Vars), string(entities.MessageStatusPending))
 	})
 
