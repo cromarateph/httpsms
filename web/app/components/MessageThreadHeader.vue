@@ -15,6 +15,7 @@ import {
   mdiMagnify,
   mdiCommentTextMultipleOutline,
   mdiCircle,
+  mdiShieldAccount,
 } from '@mdi/js'
 import { formatPhoneNumber, phoneCountry, humanizeTime } from '~/utils/filters'
 import type { EntitiesPhone } from '~~/shared/types/api'
@@ -28,8 +29,11 @@ const threadsStore = useThreadsStore()
 const appStore = useAppStore()
 const notificationsStore = useNotificationsStore()
 const redirectPreferenceStore = useRedirectPreferenceStore()
+const adminStore = useAdminStore()
 
 const selectedMenuItem = ref(-1)
+
+onMounted(() => adminStore.checkAccess())
 
 interface SelectItem {
   title: string
@@ -72,6 +76,7 @@ async function logout() {
   authStore.resetState()
   phonesStore.resetState()
   threadsStore.resetState()
+  adminStore.resetState()
   redirectPreferenceStore.resetState()
   notificationsStore.addNotification({
     type: 'info',
@@ -200,6 +205,10 @@ async function logout() {
         <v-list-item :to="{ name: 'billing' }">
           <template #prepend><v-icon :icon="mdiFinance" /></template>
           <v-list-item-title>Usage & Billing</v-list-item-title>
+        </v-list-item>
+        <v-list-item v-if="adminStore.hasAccess" :to="{ name: 'admin' }">
+          <template #prepend><v-icon :icon="mdiShieldAccount" /></template>
+          <v-list-item-title>Admin Portal</v-list-item-title>
         </v-list-item>
         <v-list-item @click.prevent="logout">
           <template #prepend><v-icon :icon="mdiLogout" /></template>

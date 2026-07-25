@@ -1,0 +1,11 @@
+{
+  "auth": {
+    "providers": {
+      "emailPassword": true,
+      "googleSignIn": {
+        "oAuthBrandDisplayName": "EvilMachine SMS",
+        "supportEmail": "carlos.romarate@gmail.com"
+      }
+    }
+  }
+}

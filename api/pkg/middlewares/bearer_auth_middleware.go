@@ -33,18 +33,28 @@ func BearerAuth(logger telemetry.Logger, tracer telemetry.Tracer, authClient *au
 
 		token, err := authClient.VerifyIDToken(context.Background(), authToken)
 		if err != nil {
-			ctxLogger.Warn(tracer.WrapErrorSpan(span, stacktrace.Propagatef(err, "invalid firebase id token [%s]", authToken)))
+			ctxLogger.Warn(tracer.WrapErrorSpan(span, stacktrace.Propagate(err, "invalid firebase id token")))
 			return c.Next()
 		}
 
 		span.AddEvent(fmt.Sprintf("[%s] token is valid", bearerScheme))
 
-		authUser := entities.AuthContext{
-			Email: token.Claims["email"].(string),
-			ID:    entities.UserID(token.Claims["user_id"].(string)),
+		authUser, ok := firebaseAuthContext(token)
+		if !ok {
+			ctxLogger.Warn(stacktrace.NewError("firebase id token has no user ID or email"))
+			return c.Next()
 		}
 
+		c.Locals(ContextKeyFirebaseAuthUser, authUser)
 		c.Locals(ContextKeyAuthUserID, authUser)
 		return c.Next()
 	}
+}
+
+func firebaseAuthContext(token *auth.Token) (entities.AuthContext, bool) {
+	email, ok := token.Claims["email"].(string)
+	if !ok || token.UID == "" || strings.TrimSpace(email) == "" {
+		return entities.AuthContext{}, false
+	}
+	return entities.AuthContext{Email: email, ID: entities.UserID(token.UID)}, true
 }

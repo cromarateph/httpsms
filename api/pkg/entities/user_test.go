@@ -7,6 +7,12 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestSubscriptionName_Limit_InternalAccountsUseProLimit(t *testing.T) {
+	assert.Equal(t, uint(5000), SubscriptionNameFree.Limit())
+	assert.Equal(t, uint(5000), SubscriptionName("").Limit())
+	assert.Equal(t, uint(200), SubscriptionName("unknown").Limit())
+}
+
 func TestUser_GetBillingAnchorDay_FreeUser(t *testing.T) {
 	user := User{
 		SubscriptionName: SubscriptionNameFree,

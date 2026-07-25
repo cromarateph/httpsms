@@ -26,7 +26,6 @@ useHead({
   title: 'Usage & Billing - httpSMS',
 })
 
-const config = useRuntimeConfig()
 const { lgAndUp } = useDisplay()
 const authStore = useAuthStore()
 const billingStore = useBillingStore()
@@ -56,7 +55,7 @@ type PaymentPlan = {
 }
 
 const plans: PaymentPlan[] = [
-  { name: 'Free', id: 'free', messagesPerMonth: 200, price: 0 },
+  { name: 'Internal Pro', id: 'free', messagesPerMonth: 5000, price: 0 },
   {
     name: 'PRO - Monthly',
     id: 'pro-monthly',
@@ -141,36 +140,6 @@ const totalMessages = computed(() => {
     billingStore.billingUsage.sent_messages +
     billingStore.billingUsage.received_messages
   )
-})
-
-const checkoutURL = computed(() => {
-  const url = new URL(config.public.checkoutUrl as string)
-  const user = authStore.authUser
-  if (user) {
-    url.searchParams.append('checkout[custom][user_id]', user.id)
-    if (user.email) {
-      url.searchParams.append('checkout[email]', user.email)
-    }
-    if (user.displayName) {
-      url.searchParams.append('checkout[name]', user.displayName)
-    }
-  }
-  return url.toString()
-})
-
-const enterpriseCheckoutURL = computed(() => {
-  const url = new URL(config.public.enterpriseCheckoutUrl as string)
-  const user = authStore.authUser
-  if (user) {
-    url.searchParams.append('checkout[custom][user_id]', user.id)
-    if (user.email) {
-      url.searchParams.append('checkout[email]', user.email)
-    }
-    if (user.displayName) {
-      url.searchParams.append('checkout[name]', user.displayName)
-    }
-  }
-  return url.toString()
 })
 
 async function loadData() {
@@ -331,37 +300,23 @@ onMounted(async () => {
                       messages
                     </p>
                   </div>
-                  <div class="d-flex mb-1 mt-1">
+                  <div
+                    v-if="
+                      !subscriptionIsCancelled &&
+                      !isOnFreePlan &&
+                      !isOnLifetimePlan
+                    "
+                    class="d-flex mb-1 mt-1"
+                  >
                     <VBtn
-                      v-if="
-                        !subscriptionIsCancelled &&
-                        !isOnFreePlan &&
-                        !isOnLifetimePlan
-                      "
                       color="primary"
                       :loading="loading"
                       @click="updateDetails"
                     >
                       Update Plan
                     </VBtn>
-                    <VBtn
-                      v-else-if="!isOnLifetimePlan"
-                      color="primary"
-                      :href="checkoutURL"
-                    >
-                      Upgrade Plan
-                    </VBtn>
                     <VSpacer />
-                    <VDialog
-                      v-if="
-                        !subscriptionIsCancelled &&
-                        !isOnFreePlan &&
-                        !isOnLifetimePlan
-                      "
-                      v-model="dialog"
-                      max-width="590"
-                      opacity="0.9"
-                    >
+                    <VDialog v-model="dialog" max-width="590" opacity="0.9">
                       <template #activator="{ props: activatorProps }">
                         <VBtn
                           v-bind="activatorProps"
@@ -411,56 +366,6 @@ onMounted(async () => {
                 </VAlert>
               </VCol>
             </VRow>
-
-            <!-- Upgrade Plan (only for free users) -->
-            <template v-if="isOnFreePlan">
-              <h2 class="text-headline-large mt-4 mb-2">Upgrade Plan</h2>
-              <VRow>
-                <VCol cols="12" md="6">
-                  <VCard :href="checkoutURL" link>
-                    <VCardText>
-                      <VRow align="center">
-                        <VCol class="flex-grow-1 flex-shrink-1">
-                          <h1
-                            class="text-title-large font-weight-bold text-uppercase mt-3"
-                          >
-                            Pro Plan
-                          </h1>
-                          <p class="text-medium-emphasis">
-                            Send and receive 5,000 to 20,000 messages per month
-                          </p>
-                        </VCol>
-                        <VCol class="flex-grow-0 flex-shrink-0 text-center">
-                          <span class="text-headline-medium">$10</span>/month
-                        </VCol>
-                      </VRow>
-                    </VCardText>
-                  </VCard>
-                </VCol>
-                <VCol cols="12" md="6">
-                  <VCard :href="enterpriseCheckoutURL" link>
-                    <VCardText>
-                      <VRow align="center">
-                        <VCol class="flex-grow-1 flex-shrink-1">
-                          <h1
-                            class="text-title-large font-weight-bold text-uppercase mt-3"
-                          >
-                            Enterprise Plan
-                          </h1>
-                          <p class="text-medium-emphasis">
-                            Send and receive 50,000 to 200,000 messages per
-                            month
-                          </p>
-                        </VCol>
-                        <VCol class="flex-grow-0 flex-shrink-0 text-center">
-                          <span class="text-headline-medium">$89</span>/month
-                        </VCol>
-                      </VRow>
-                    </VCardText>
-                  </VCard>
-                </VCol>
-              </VRow>
-            </template>
 
             <!-- Overview -->
             <h4 class="text-headline-large mb-3 mt-8">Overview</h4>

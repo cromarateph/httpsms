@@ -1,0 +1,67 @@
+name: httpsms
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: httpsms
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_USER: httpsms
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U httpsms -d httpsms"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    volumes:
+      - redis:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: ./api
+      args:
+        GIT_COMMIT: ${GIT_COMMIT:-unknown}
+    env_file:
+      - ./api/.env
+    ports:
+      - "127.0.0.1:8100:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  web:
+    build:
+      context: ./web
+    ports:
+      - "127.0.0.1:3100:3000"
+    volumes:
+      - ./releases/HttpSms.apk:/usr/share/nginx/html/HttpSms.apk:ro
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres:
+  redis:

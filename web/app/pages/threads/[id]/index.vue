@@ -230,11 +230,14 @@ async function sendMessage(event: KeyboardEvent | Event) {
 onMounted(async () => {
   await loadData()
 
-  const pusher = new Pusher(config.public.pusherKey as string, {
+  const pusherKey = config.public.pusherKey as string
+  if (!pusherKey || !authStore.user) return
+
+  const pusher = new Pusher(pusherKey, {
     cluster: config.public.pusherCluster as string,
   })
 
-  webhookChannel = pusher.subscribe(authStore.user!.id)
+  webhookChannel = pusher.subscribe(authStore.user.id)
   webhookChannel.bind('message.phone.sent', () => {
     if (!loadingMessages.value) loadMessages(false)
   })
@@ -327,7 +330,7 @@ onBeforeUnmount(() => {
         <div
           ref="messageBody"
           class="messages-body no-scrollbar w-100 pl-2"
-          :class="{ 'pr-7': lgAndUp }"
+          :class="{ 'pr-4': lgAndUp }"
         >
           <VRow
             v-for="message in messages"
@@ -576,31 +579,9 @@ onBeforeUnmount(() => {
   padding-top: 50px;
   max-height: calc(100vh - 170px);
   position: absolute;
-  width: calc(100vw - 8px);
+  width: 100%;
+  max-width: inherit;
   bottom: 94px;
-}
-
-@media (min-width: 960px) {
-  .messages-body {
-    max-width: 900px;
-  }
-}
-@media (min-width: 1280px) {
-  .messages-body {
-    max-width: 1185px;
-  }
-}
-
-@media (min-width: 1545px) {
-  .messages-body {
-    max-width: 1280px;
-  }
-}
-
-@media (min-width: 2138px) {
-  .messages-body {
-    max-width: 2000px;
-  }
 }
 
 .no-scrollbar {

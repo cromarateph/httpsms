@@ -21,16 +21,17 @@ const hasDrawer = computed(() => {
 
 onMounted(() => {
   setTimeout(() => {
-    const pusher = new Pusher(config.public.pusherKey as string, {
+    const pusherKey = config.public.pusherKey as string
+    if (!pusherKey || !authStore.authUser) return
+
+    const pusher = new Pusher(pusherKey, {
       cluster: config.public.pusherCluster as string,
     })
 
-    if (authStore.authUser) {
-      const channel = pusher.subscribe(authStore.authUser.id)
-      channel.bind('phone.updated', () => {
-        canPoll = true
-      })
-    }
+    const channel = pusher.subscribe(authStore.authUser.id)
+    channel.bind('phone.updated', () => {
+      canPoll = true
+    })
 
     startPoller()
   }, 10_000)

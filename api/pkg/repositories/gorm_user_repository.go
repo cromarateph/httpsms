@@ -51,6 +51,8 @@ func (repository *gormUserRepository) Delete(ctx context.Context, user *entities
 		return repository.tracer.WrapErrorSpan(span, stacktrace.Propagatef(err, "cannot delete user with ID [%s]", user.ID))
 	}
 
+	repository.cache.Wait()
+	repository.cache.Del(user.APIKey)
 	return nil
 }
 
@@ -151,6 +153,8 @@ func (repository *gormUserRepository) Update(ctx context.Context, user *entities
 		return repository.tracer.WrapErrorSpan(span, stacktrace.Propagatef(err, "cannot update user with ID [%s]", user.ID))
 	}
 
+	repository.cache.Wait()
+	repository.cache.Del(user.APIKey)
 	return nil
 }
 

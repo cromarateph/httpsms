@@ -38,6 +38,7 @@ export default defineNuxtConfig({
       '/threads',
       '/settings',
       '/billing',
+      '/admin',
       '/bulk-messages',
       '/heartbeats',
       '/phone-api-keys',
@@ -52,6 +53,7 @@ export default defineNuxtConfig({
       '/threads/**',
       '/settings',
       '/billing',
+      '/admin',
       '/bulk-messages',
       '/heartbeats/**',
       '/phone-api-keys',
@@ -118,7 +120,8 @@ export default defineNuxtConfig({
       appDocumentationUrl:
         process.env.APP_DOCUMENTATION_URL || 'https://docs.httpsms.com',
       appDownloadUrl:
-        process.env.APP_DOWNLOAD_URL || 'https://apk.httpsms.com/HttpSms.apk',
+        process.env.APP_DOWNLOAD_URL ||
+        'https://sms.evilmachine.tech/HttpSms.apk',
       appEnv: process.env.APP_ENV || 'production',
       checkoutUrl: process.env.CHECKOUT_URL || '',
       enterpriseCheckoutUrl: process.env.ENTERPRISE_CHECKOUT_URL || '',
@@ -149,6 +152,7 @@ export default defineNuxtConfig({
     '/threads/**': { robots: false },
     '/settings': { robots: false },
     '/billing': { robots: false },
+    '/admin': { robots: false },
     '/bulk-messages': { robots: false },
     '/heartbeats/**': { robots: false },
     '/phone-api-keys': { robots: false },

@@ -142,6 +142,8 @@ func NewContainer(projectID string, version string) (container *Container) {
 	container.RegisterBillingRoutes()
 	container.RegisterBillingListeners()
 
+	container.RegisterAdminRoutes()
+
 	container.RegisterWebhookRoutes()
 	container.RegisterWebhookListeners()
 
@@ -224,6 +226,12 @@ func (container *Container) PhoneAPIKeyMiddleware() fiber.Handler {
 func (container *Container) AuthenticatedMiddleware() fiber.Handler {
 	container.logger.Debug("creating middlewares.Authenticated")
 	return middlewares.Authenticated(container.Tracer())
+}
+
+// AdminMiddleware restricts routes to Firebase-authenticated administrators.
+func (container *Container) AdminMiddleware() fiber.Handler {
+	container.logger.Debug("creating middlewares.Admin")
+	return middlewares.Admin(splitCommaEnv("ADMIN_EMAILS", ""))
 }
 
 // Logger creates a new instance of telemetry.Logger
@@ -380,6 +388,10 @@ ALTER TABLE discords ADD CONSTRAINT IF NOT EXISTS uni_discords_server_id CHECK (
 
 	if err = db.AutoMigrate(&entities.User{}); err != nil {
 		container.logger.Fatal(stacktrace.Propagatef(err, "cannot migrate %T", &entities.User{}))
+	}
+
+	if err = db.AutoMigrate(&entities.AdminAuditLog{}); err != nil {
+		container.logger.Fatal(stacktrace.Propagatef(err, "cannot migrate %T", &entities.AdminAuditLog{}))
 	}
 
 	if err = db.AutoMigrate(&entities.MessageSendSchedule{}); err != nil {
@@ -1065,6 +1077,19 @@ func (container *Container) UserService() (service *services.UserService) {
 	)
 }
 
+// AdminService creates the internal administrator service.
+func (container *Container) AdminService() *services.AdminService {
+	container.logger.Debug("creating services.AdminService")
+	return services.NewAdminService(
+		container.Logger(),
+		container.Tracer(),
+		container.DB(),
+		container.UserRepository(),
+		container.UserService(),
+		container.FirebaseAuthClient(),
+	)
+}
+
 // Mailer creates a new instance of emails.Mailer
 func (container *Container) Mailer() (mailer emails.Mailer) {
 	container.logger.Debug("creating emails.Mailer")
@@ -1158,6 +1183,16 @@ func (container *Container) UserHandler() (handler *handlers.UserHandler) {
 		container.Tracer(),
 		container.UserHandlerValidator(),
 		container.UserService(),
+	)
+}
+
+// AdminHandler creates the internal administrator handler.
+func (container *Container) AdminHandler() *handlers.AdminHandler {
+	container.logger.Debug("creating handlers.AdminHandler")
+	return handlers.NewAdminHandler(
+		container.Logger(),
+		container.Tracer(),
+		container.AdminService(),
 	)
 }
 
@@ -1694,6 +1729,16 @@ func (container *Container) RegisterPhoneRoutes() {
 func (container *Container) RegisterUserRoutes() {
 	container.logger.Debug(fmt.Sprintf("registering %T routes", &handlers.UserHandler{}))
 	container.UserHandler().RegisterRoutes(container.App(), container.AuthenticatedMiddleware())
+}
+
+// RegisterAdminRoutes registers the isolated admin portal API.
+func (container *Container) RegisterAdminRoutes() {
+	container.logger.Debug(fmt.Sprintf("registering %T routes", &handlers.AdminHandler{}))
+	container.AdminHandler().RegisterRoutes(
+		container.App(),
+		container.AuthenticatedMiddleware(),
+		container.AdminMiddleware(),
+	)
 }
 
 // RegisterMessageSendScheduleRoutes registers routes for the /send-schedules prefix
