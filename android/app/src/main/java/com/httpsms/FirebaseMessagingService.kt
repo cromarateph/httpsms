@@ -36,7 +36,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             return
         }
 
-        scheduleJob(messageID)
+        SendSmsWorker.enqueue(this, messageID)
     }
     // [END receive_message]
 
@@ -73,6 +73,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
 
                 HttpSmsApiService.create(applicationContext).storeHeartbeat(phoneNumbers.toTypedArray(), Settings.isCharging(applicationContext))
                 Settings.setHeartbeatTimestampAsync(applicationContext, System.currentTimeMillis())
+                SendSmsWorker.enqueue(applicationContext)
             } catch (exception: Exception) {
                 Timber.e(exception)
             }
@@ -80,27 +81,6 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
         }.start()
     }
 
-    private fun scheduleJob(messageID: String) {
-        // [START dispatch_job]
-        val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
-
-        val inputData: Data = workDataOf(Constants.KEY_MESSAGE_ID to messageID)
-        val work = OneTimeWorkRequest
-            .Builder(SendSmsWorker::class.java)
-            .setConstraints(constraints)
-            .setInputData(inputData)
-            .addTag(messageID)
-            .build()
-
-        WorkManager
-            .getInstance(this)
-            .enqueue(work)
-
-        Timber.d("work enqueued with ID [${work.id}] for messageID [${messageID}]")
-        // [END dispatch_job]
-    }
     private fun sendRegistrationToServer(token: String) {
         Timber.d("sendRegistrationTokenToServer($token)")
         Settings.setFcmTokenAsync(this, token)
@@ -132,6 +112,27 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
     }
 
     internal class SendSmsWorker(appContext: Context, workerParams: WorkerParameters) : Worker(appContext, workerParams) {
+        companion object {
+            fun enqueue(context: Context, messageID: String? = null) {
+                val constraints = Constraints.Builder()
+                    .setRequiredNetworkType(NetworkType.CONNECTED)
+                    .build()
+
+                val builder = OneTimeWorkRequest
+                    .Builder(SendSmsWorker::class.java)
+                    .setConstraints(constraints)
+                if (messageID != null) {
+                    builder
+                        .setInputData(workDataOf(Constants.KEY_MESSAGE_ID to messageID))
+                        .addTag(messageID)
+                }
+
+                val work = builder.build()
+                WorkManager.getInstance(context).enqueue(work)
+                Timber.d("work enqueued with ID [${work.id}] for messageID [${messageID ?: "next outstanding"}]")
+            }
+        }
+
         override fun doWork(): Result {
             if (!Settings.isLoggedIn(applicationContext)) {
                 Timber.w("user is not logged in, stopping processing")
@@ -139,44 +140,47 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             }
 
             val messageID = this.inputData.getString(Constants.KEY_MESSAGE_ID)
-            if (messageID == null) {
-                Timber.e("cannot get outstanding message for work [${this.id}]")
-                return Result.failure()
-            }
-
-            val message = getMessage(applicationContext, messageID) ?: return Result.failure()
+            val message = getMessage(applicationContext, messageID)
+                ?: return if (messageID == null) Result.success() else Result.failure()
             if (!Settings.getActiveStatus(applicationContext, message.sim)) {
                 Timber.w("[${message.sim}] SIM is not active, stopping processing")
-                handleFailed(applicationContext, messageID, "Outgoing messages have been disabled on the mobile app")
-                return Result.failure()
+                handleFailed(applicationContext, message.id, "Outgoing messages have been disabled on the mobile app")
+                return continueFallback(messageID, Result.failure())
             }
 
             if (message.encrypted && Settings.getEncryptionKey(applicationContext).isNullOrEmpty()) {
                 Timber.w("[${message.sim}] message is encrypted but the encryption key is empty")
-                handleFailed(applicationContext, messageID, "Outgoing message is encrypted but mobile app has no encryption key")
-                return Result.failure()
+                handleFailed(applicationContext, message.id, "Outgoing message is encrypted but mobile app has no encryption key")
+                return continueFallback(messageID, Result.failure())
             }
             if (message.encrypted) {
                 try {
                     Encrypter.decrypt(Settings.getEncryptionKey(applicationContext)!!, message.content)
                 } catch (exception: Exception) {
                     Timber.e(exception)
-                    handleFailed(applicationContext, messageID, "Cannot decrypt the outgoing message. Check your encryption key on the Android app.")
-                    return Result.failure()
+                    handleFailed(applicationContext, message.id, "Cannot decrypt the outgoing message. Check your encryption key on the Android app.")
+                    return continueFallback(messageID, Result.failure())
                 }
             }
 
             Receiver.register(applicationContext)
 
             if (message.attachments != null && message.attachments.isNotEmpty()) {
-                return handleMmsMessage(message)
+                return continueFallback(messageID, handleMmsMessage(message))
             }
 
             val parts = getMessageParts(applicationContext, message)
             if (parts.size == 1) {
-                return handleSingleMessage(message, parts.first())
+                return continueFallback(messageID, handleSingleMessage(message, parts.first()))
             }
-            return handleMultipartMessage(message, parts)
+            return continueFallback(messageID, handleMultipartMessage(message, parts))
+        }
+
+        private fun continueFallback(messageID: String?, result: Result): Result {
+            if (messageID == null) {
+                enqueue(applicationContext)
+            }
+            return result
         }
 
         fun extractFileName(url: String, prefix: String, mimeType: String? = null): String {
@@ -381,8 +385,8 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
             Timber.d("work enqueued with ID [${work.id}] for [FAILED] message with ID [${messageID}]")
         }
 
-        private fun getMessage(context: Context, messageID: String): Message? {
-            Timber.d("fetching message with ID [${messageID}]")
+        private fun getMessage(context: Context, messageID: String?): Message? {
+            Timber.d("fetching message with ID [${messageID ?: "next outstanding"}]")
             val message =  HttpSmsApiService.create(context).getOutstandingMessage(messageID)
 
             if (message != null) {
@@ -390,7 +394,7 @@ class MyFirebaseMessagingService : FirebaseMessagingService() {
                 return message
             }
 
-            Timber.e("cannot get message from API with ID [${messageID}]")
+            Timber.d("no outstanding message found for ID [${messageID ?: "next outstanding"}]")
             return null
         }
 

@@ -38,9 +38,14 @@ class HttpSmsApiService(private val apiKey: String, private val baseURL: URI) {
         }
     }
 
-    fun getOutstandingMessage(messageID: String): Message? {
+    fun getOutstandingMessage(messageID: String? = null): Message? {
+        val path = if (messageID == null) {
+            "/v1/messages/outstanding"
+        } else {
+            "/v1/messages/outstanding?message_id=$messageID"
+        }
         val request: Request = Request.Builder()
-            .url(resolveURL("/v1/messages/outstanding?message_id=${messageID}"))
+            .url(resolveURL(path))
             .header(apiKeyHeader, apiKey)
             .header(clientVersionHeader, BuildConfig.VERSION_NAME)
             .build()

@@ -23,11 +23,16 @@ func (input *MessageOutstanding) Sanitize() MessageOutstanding {
 
 // ToGetOutstandingParams converts MessageOutstanding into services.MessageGetOutstandingParams
 func (input *MessageOutstanding) ToGetOutstandingParams(source string, authCtx entities.AuthContext, timestamp time.Time) services.MessageGetOutstandingParams {
+	messageID := uuid.Nil
+	if input.MessageID != "" {
+		messageID = uuid.MustParse(input.MessageID)
+	}
+
 	return services.MessageGetOutstandingParams{
 		Source:       source,
 		PhoneNumbers: authCtx.PhoneNumbers,
 		UserID:       authCtx.ID,
-		MessageID:    uuid.MustParse(input.MessageID),
+		MessageID:    messageID,
 		Timestamp:    timestamp,
 	}
 }

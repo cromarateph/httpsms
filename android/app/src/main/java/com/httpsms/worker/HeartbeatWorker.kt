@@ -5,6 +5,7 @@ import androidx.work.Worker
 import androidx.work.WorkerParameters
 import com.httpsms.Constants
 import com.httpsms.HttpSmsApiService
+import com.httpsms.MyFirebaseMessagingService
 import com.httpsms.Settings
 import timber.log.Timber
 
@@ -35,6 +36,8 @@ class HeartbeatWorker(appContext: Context, workerParams: WorkerParameters) : Wor
 
             Settings.setHeartbeatTimestampAsync(applicationContext, System.currentTimeMillis())
             Timber.d("Set the heartbeat timestamp")
+
+            MyFirebaseMessagingService.SendSmsWorker.enqueue(applicationContext)
         } catch (exception: Exception) {
             Timber.e(exception, "Failed to send [${phoneNumbers.joinToString()}] heartbeats to server")
             return Result.failure()

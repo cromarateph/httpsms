@@ -185,7 +185,7 @@ func (h *MessageHandler) BulkSend(c fiber.Ctx) error {
 // @Tags         Messages
 // @Accept       json
 // @Produce      json
-// @Param        message_id	query  		string  						true "The ID of the message" default(32343a19-da5e-4b1b-a767-3298a73703cb)
+// @Param        message_id	query  		string  						false "The ID of the message; omit to claim the oldest due message" default(32343a19-da5e-4b1b-a767-3298a73703cb)
 // @Success      200 		{object}	responses.MessageResponse
 // @Failure      400		{object}	responses.BadRequest
 // @Failure 	 401    	{object}	responses.Unauthorized

@@ -242,11 +242,14 @@ func (validator MessageHandlerValidator) ValidateMessageBulkSend(ctx context.Con
 
 // ValidateMessageOutstanding validates the requests.MessageOutstanding request
 func (validator MessageHandlerValidator) ValidateMessageOutstanding(_ context.Context, request requests.MessageOutstanding) url.Values {
+	if request.MessageID == "" {
+		return url.Values{}
+	}
+
 	v := govalidator.New(govalidator.Options{
 		Data: &request,
 		Rules: govalidator.MapData{
 			"message_id": []string{
-				"required",
 				"uuid",
 			},
 		},

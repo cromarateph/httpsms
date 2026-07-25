@@ -76,6 +76,7 @@ class MainActivity : AppCompatActivity() {
 
         startStickyNotification(this)
         scheduleHeartbeatWorker(this)
+        MyFirebaseMessagingService.SendSmsWorker.enqueue(this)
     }
 
     override fun onStart() {

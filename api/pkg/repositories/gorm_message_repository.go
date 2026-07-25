@@ -250,16 +250,7 @@ func (repository *gormMessageRepository) GetOutstanding(ctx context.Context, use
 	err := crdbgorm.ExecuteTx(
 		ctx, repository.db, nil,
 		func(tx *gorm.DB) error {
-			query := tx.WithContext(ctx).Model(message).
-				Clauses(clause.Returning{}).
-				Where("user_id = ?", userID).
-				Where("id = ?", messageID)
-
-			if len(phoneNumbers) > 0 {
-				query = query.Where("owner IN ?", phoneNumbers)
-			}
-
-			return query.Where(repository.db.Where("status = ?", entities.MessageStatusScheduled).Or("status = ?", entities.MessageStatusPending).Or("status = ?", entities.MessageStatusExpired)).
+			return outstandingMessageClaimQuery(tx.WithContext(ctx), message, userID, messageID, phoneNumbers).
 				Update("status", entities.MessageStatusSending).Error
 		},
 	)
@@ -276,6 +267,43 @@ func (repository *gormMessageRepository) GetOutstanding(ctx context.Context, use
 	}
 
 	return message, nil
+}
+
+func outstandingMessageClaimQuery(tx *gorm.DB, message *entities.Message, userID entities.UserID, messageID uuid.UUID, phoneNumbers []string) *gorm.DB {
+	statuses := []entities.MessageStatus{
+		entities.MessageStatusScheduled,
+		entities.MessageStatusPending,
+		entities.MessageStatusExpired,
+	}
+	query := tx.Model(message).
+		Clauses(clause.Returning{}).
+		Where("user_id = ?", userID)
+
+	if len(phoneNumbers) > 0 {
+		query = query.Where("owner IN ?", phoneNumbers)
+	}
+	if messageID != uuid.Nil {
+		return query.Where("id = ?", messageID).Where("status IN ?", statuses)
+	}
+
+	statuses = []entities.MessageStatus{
+		entities.MessageStatusScheduled,
+		entities.MessageStatusExpired,
+	}
+	candidate := tx.Model(&entities.Message{}).
+		Select("id").
+		Where("user_id = ?", userID).
+		Where("status IN ?", statuses).
+		Where("notification_scheduled_at <= CURRENT_TIMESTAMP").
+		Order("notification_scheduled_at ASC, created_at ASC").
+		Limit(1)
+	if len(phoneNumbers) > 0 {
+		candidate = candidate.Where("owner IN ?", phoneNumbers)
+	}
+
+	return query.
+		Where("id = (?)", candidate).
+		Where("status IN ?", statuses)
 }
 
 func (repository *gormMessageRepository) order(params IndexParams, defaultSortBy string) string {
