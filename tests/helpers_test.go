@@ -110,6 +110,20 @@ func setupPhone(ctx context.Context, t *testing.T, messagesPerMinute uint) testP
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, resp.HTTPResponse.StatusCode, "fcm token bind failed")
 
+	heartbeatBody, err := json.Marshal(map[string]interface{}{
+		"phone_numbers": []string{phoneNumber},
+		"charging":      true,
+	})
+	require.NoError(t, err)
+	heartbeatRequest, err := http.NewRequestWithContext(ctx, http.MethodPost, apiBaseURL+"/v1/heartbeats", bytes.NewReader(heartbeatBody))
+	require.NoError(t, err)
+	heartbeatRequest.Header.Set("Content-Type", "application/json")
+	heartbeatRequest.Header.Set("x-api-key", phoneAPIKeyValue)
+	heartbeatResponse, err := http.DefaultClient.Do(heartbeatRequest)
+	require.NoError(t, err)
+	defer heartbeatResponse.Body.Close()
+	require.Equal(t, http.StatusCreated, heartbeatResponse.StatusCode, "heartbeat store failed")
+
 	return testPhone{
 		PhoneNumber: phoneNumber,
 		PhoneAPIKey: phoneAPIKeyValue,
